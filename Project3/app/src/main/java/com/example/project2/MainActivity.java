@@ -19,7 +19,6 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.jiangdg.usbcamera.UVCCameraHelper;
-import com.jiangdg.usbcamera.utils.FileUtils;
 import com.serenegiant.usb.common.AbstractUVCCameraHandler;
 import com.serenegiant.usb.encoder.RecordParams;
 import com.serenegiant.usb.widget.CameraViewInterface;
@@ -32,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+    private static final String TAG = "TAG";
+    private static final int VIDEO_SAVE_TIME = 5000;
     // Permissions
     private static final String[] REQUIRED_PERMISSION_LIST = new String[]{
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -44,18 +45,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public static final String PICTURE_NAME = "Pictures";
     public static final String RECORD_NAME = "Videos";
     // UVC
-    private static final String TAG = "TAG";
-    UVCCameraHelper mCameraHelper;
-    CameraViewInterface mUVCCameraView;
+    UVCCameraHelper mCameraHelper_1, mCameraHelper_2;
+    CameraViewInterface mUVCCameraView_1, mUVCCameraView_2;
 
-    boolean isRequest = false;
-    boolean isPreview = false;
-
-    private static final int VIDEO_SAVE_TIME = 5000;
+    boolean isRequest_1 = false;
+    boolean isPreview_1 = false;
+    boolean isRequest_2 = false;
+    boolean isPreview_2 = false;
     int times = 0;
     long last_timestamp = 0;
     BufferedOutputStream bufferedOutputStream_0;
     BufferedOutputStream bufferedOutputStream_1;
+    BufferedOutputStream bufferedOutputStream_3;
+    BufferedOutputStream bufferedOutputStream_4;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,18 +68,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         checkAndRequestPermissions();
         ((Button)findViewById(R.id.button_take_picture)).setOnClickListener(this);
         ((Button)findViewById(R.id.button_record)).setOnClickListener(this);
-        mUVCCameraView = findViewById(R.id.camera_view);
-        mUVCCameraView.setCallback(mCallback);
-        mCameraHelper = UVCCameraHelper.getInstance();
-        mCameraHelper.setDefaultPreviewSize(640,480);
-        mCameraHelper.setDefaultFrameFormat(UVCCameraHelper.FRAME_FORMAT_MJPEG);
-        mCameraHelper.initUSBMonitor(this, mUVCCameraView, mDevConnectListener);
-//        mCameraHelper.setOnPreviewFrameListener(new AbstractUVCCameraHandler.OnPreViewResultListener() {
-//            @Override
-//            public void onPreviewResult(byte[] nv21Yuv) {
-////                Log.d(TAG, "[Main] onPreviewResult: " + nv21Yuv.length);
-//            }
-//        });
+        mUVCCameraView_1 = findViewById(R.id.camera_view_1);
+        mUVCCameraView_1.setCallback(mCallback_1);
+        mCameraHelper_1 = new UVCCameraHelper();
+//        mCameraHelper = UVCCameraHelper.getInstance();
+        mCameraHelper_1.setDefaultPreviewSize(640,480);
+        mCameraHelper_1.setDefaultFrameFormat(UVCCameraHelper.FRAME_FORMAT_MJPEG);
+        mCameraHelper_1.initUSBMonitor(this, mUVCCameraView_1, mDevConnectListener_1);
+
+        mUVCCameraView_2 = findViewById(R.id.camera_view_2);
+        mUVCCameraView_2.setCallback(mCallback_2);
+        mCameraHelper_2 = new UVCCameraHelper();
+        mCameraHelper_2.setDefaultPreviewSize(640,480);
+        mCameraHelper_2.setDefaultFrameFormat(UVCCameraHelper.FRAME_FORMAT_MJPEG);
+        mCameraHelper_2.initUSBMonitor(this, mUVCCameraView_2, mDevConnectListener_2);
+
         List<DeviceInfo> infoList = getUSBDevInfo();
         for(DeviceInfo dev : infoList) {
             String str = "Device：PID_" + dev.getPID() + " & " + "VID_" + dev.getVID();
@@ -85,11 +90,37 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (mCameraHelper_1 != null) {
+            Log.d(TAG, "[Life] registerUSB1");
+            mCameraHelper_1.registerUSB();
+        }
+        if (mCameraHelper_2 != null) {
+            Log.d(TAG, "[Life] registerUSB2");
+            mCameraHelper_2.registerUSB();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (mCameraHelper_1 != null) {
+            Log.d(TAG, "[Life] unregisterUSB1");
+            mCameraHelper_1.unregisterUSB();
+        }
+        if (mCameraHelper_2 != null) {
+            Log.d(TAG, "[Life] unregisterUSB2");
+            mCameraHelper_2.unregisterUSB();
+        }
+    }
+
     private List<DeviceInfo> getUSBDevInfo() {
-        if(mCameraHelper == null)
+        if(mCameraHelper_1 == null)
             return null;
         List<DeviceInfo> devInfos = new ArrayList<>();
-        List<UsbDevice> list = mCameraHelper.getUsbDeviceList();
+        List<UsbDevice> list = mCameraHelper_1.getUsbDeviceList();
         for(UsbDevice dev : list) {
             DeviceInfo info = new DeviceInfo();
             info.setPID(dev.getVendorId());
@@ -99,87 +130,128 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         return devInfos;
     }
 
-    private CameraViewInterface.Callback mCallback = new CameraViewInterface.Callback(){
+    private CameraViewInterface.Callback mCallback_1 = new CameraViewInterface.Callback(){
         @Override
         public void onSurfaceCreated(CameraViewInterface view, Surface surface) {
-            Log.d(TAG, "[View] onSurfaceCreated: isPreview = " + isPreview + ", isCameraOpened = " + mCameraHelper.isCameraOpened());
-            // must have
-            if (!isPreview && mCameraHelper.isCameraOpened()) {
-                mCameraHelper.startPreview(mUVCCameraView);
-                isPreview = true;
+            Log.d(TAG, "[View1] onSurfaceCreated: isPreview = " + isPreview_1 + ", isCameraOpened = " + mCameraHelper_1.isCameraOpened());
+            if (!isPreview_1 && mCameraHelper_1.isCameraOpened()) {
+                mCameraHelper_1.startPreview(mUVCCameraView_1);
+                isPreview_1 = true;
             }
         }
 
         @Override
         public void onSurfaceChanged(CameraViewInterface view, Surface surface, int width, int height) {
-            Log.d(TAG, "[View] onSurfaceChanged: " + width + "x" + height);
+            Log.d(TAG, "[View1] onSurfaceChanged: " + width + "x" + height);
         }
 
         @Override
         public void onSurfaceDestroy(CameraViewInterface view, Surface surface) {
-            Log.d(TAG, "[View] onSurfaceDestroy");
+            Log.d(TAG, "[View1] onSurfaceDestroy");
             // must have
-            if (isPreview && mCameraHelper.isCameraOpened()) {
-                mCameraHelper.stopPreview();
-                isPreview = false;
+            if (isPreview_1 && mCameraHelper_1.isCameraOpened()) {
+                mCameraHelper_1.stopPreview();
+                isPreview_1 = false;
             }
         }
     };
 
-    private UVCCameraHelper.OnMyDevConnectListener mDevConnectListener = new UVCCameraHelper.OnMyDevConnectListener() {
+    private CameraViewInterface.Callback mCallback_2 = new CameraViewInterface.Callback(){
+        @Override
+        public void onSurfaceCreated(CameraViewInterface view, Surface surface) {
+            Log.d(TAG, "[View2] onSurfaceCreated: isPreview = " + isPreview_2 + ", isCameraOpened = " + mCameraHelper_2.isCameraOpened());
+            // must have
+            if (!isPreview_2 && mCameraHelper_2.isCameraOpened()) {
+                mCameraHelper_2.startPreview(mUVCCameraView_2);
+                isPreview_2 = true;
+            }
+        }
+
+        @Override
+        public void onSurfaceChanged(CameraViewInterface view, Surface surface, int width, int height) {
+            Log.d(TAG, "[View2] onSurfaceChanged: " + width + "x" + height);
+        }
+
+        @Override
+        public void onSurfaceDestroy(CameraViewInterface view, Surface surface) {
+            Log.d(TAG, "[View2] onSurfaceDestroy");
+            // must have
+            if (isPreview_2 && mCameraHelper_2.isCameraOpened()) {
+                mCameraHelper_2.stopPreview();
+                isPreview_2 = false;
+            }
+        }
+    };
+
+    private UVCCameraHelper.OnMyDevConnectListener mDevConnectListener_1 = new UVCCameraHelper.OnMyDevConnectListener() {
         @Override
         public void onAttachDev(UsbDevice device) {
-            Log.d(TAG, "[Dev] onAttachDev: " + device.getDeviceName());
-            // request open permission(must have)
-            if (!isRequest) {
-                isRequest = true;
-                if (mCameraHelper != null) {
-                    mCameraHelper.requestPermission(0);
+            Log.d(TAG, "[Dev1] onAttachDev: " + device.getDeviceName() + ", isRequest = " + isRequest_1);
+            if (!isRequest_1) {
+                isRequest_1 = true;
+                if (mCameraHelper_1 != null) {
+                    mCameraHelper_1.requestPermission(0);
                 }
             }
         }
 
         @Override
         public void onDettachDev(UsbDevice device) {
-            Log.d(TAG, "[Dev] onDettachDev: " + device.getDeviceName());
+            Log.d(TAG, "[Dev1] onDettachDev: " + device.getDeviceName());
             showShortMsg("onDettachDev");
-            // close camera(must have)
-            if (isRequest) {
-                isRequest = false;
-                mCameraHelper.closeCamera();
+            if (isRequest_1) {
+                isRequest_1 = false;
+                mCameraHelper_1.closeCamera();
             }
         }
 
         @Override
         public void onConnectDev(UsbDevice device, boolean isConnected) {
-            Log.d(TAG, "[Dev] onConnectDev: " + device.getDeviceName() + ", isConnected = " + isConnected);
+            Log.d(TAG, "[Dev1] onConnectDev: " + device.getDeviceName() + ", isConnected = " + isConnected);
+        }
+
+        @Override
+        public void onDisConnectDev(UsbDevice device) {
+            Log.d(TAG, "[Dev1] onDisConnectDev: " + device.getDeviceName());
+        }
+    };
+
+    private UVCCameraHelper.OnMyDevConnectListener mDevConnectListener_2 = new UVCCameraHelper.OnMyDevConnectListener() {
+        @Override
+        public void onAttachDev(UsbDevice device) {
+            Log.d(TAG, "[Dev2] onAttachDev: " + device.getDeviceName());
+            // request open permission(must have)
+            if (!isRequest_2) {
+                isRequest_2 = true;
+                if (mCameraHelper_2 != null) {
+                    mCameraHelper_2.requestPermission(1);
+                }
+            }
+        }
+
+        @Override
+        public void onDettachDev(UsbDevice device) {
+            Log.d(TAG, "[Dev2] onDettachDev: " + device.getDeviceName());
+            showShortMsg("onDettachDev");
+            // close camera(must have)
+            if (isRequest_2) {
+                isRequest_2 = false;
+                mCameraHelper_2.closeCamera();
+            }
+        }
+
+        @Override
+        public void onConnectDev(UsbDevice device, boolean isConnected) {
+            Log.d(TAG, "[Dev2] onConnectDev: " + device.getDeviceName() + ", isConnected = " + isConnected);
             showShortMsg("onConnectDev");
         }
 
         @Override
         public void onDisConnectDev(UsbDevice device) {
-            Log.d(TAG, "[Dev] onDisConnectDev: " + device.getDeviceName());
+            Log.d(TAG, "[Dev2] onDisConnectDev: " + device.getDeviceName());
             showShortMsg("onDisConnectDev");
         }
     };
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        // step.2 register USB event broadcast
-        if (mCameraHelper != null) {
-            mCameraHelper.registerUSB();
-        }
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        // step.3 unregister USB event broadcast
-        if (mCameraHelper != null) {
-            mCameraHelper.unregisterUSB();
-        }
-    }
 
     private void showShortMsg(String msg) {
         Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
@@ -224,13 +296,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @SuppressLint("NonConstantResourceId")
     @Override
     public void onClick(View view) {
-        if (mCameraHelper == null || !mCameraHelper.isCameraOpened()) {
+        if (mCameraHelper_1 == null || !mCameraHelper_1.isCameraOpened()) {
             showShortMsg("sorry,camera open failed");
         }
         switch (view.getId()) {
             case R.id.button_take_picture: // take picture
                 String fileName = FileName.generate(FileName.PICTURE);
-                mCameraHelper.capturePicture(fileName, new AbstractUVCCameraHandler.OnCaptureListener() {
+                mCameraHelper_1.capturePicture(fileName, new AbstractUVCCameraHandler.OnCaptureListener() {
                     @Override
                     public void onCaptureResult(String path) {
                         Log.d(TAG,"[Picture] onRecordResult: " + path);
@@ -244,7 +316,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 });
                 break;
             case R.id.button_record:
-                if (!mCameraHelper.isPushing()) { // start record
+                if (!mCameraHelper_1.isPushing()) { // start record
                     RecordParams params = new RecordParams();
 //                    String recPath = FileName.generate(FileName.RECORD);
 //                    params.setRecordPath(recPath);
@@ -252,7 +324,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //                    params.setVoiceClose(false);
 //                    params.setSupportOverlay(true); // overlay only support armeabi-v7a & arm64-v8a
 //                    mCameraHelper.startPusher(params, new AbstractUVCCameraHandler.OnEncodeResultListener() {
-                    mCameraHelper.startPusher(new AbstractUVCCameraHandler.OnEncodeResultListener() {
+                    mCameraHelper_1.startPusher(new AbstractUVCCameraHandler.OnEncodeResultListener() {
                         @Override
                         public void onEncodeResult(byte[] data, int offset, int length, long timestamp, int type) {
                             if (times == 0 || timestamp - last_timestamp >= VIDEO_SAVE_TIME * 2) { // 0s C0
@@ -328,7 +400,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                    mCameraHelper.stopPusher();
+                    mCameraHelper_1.stopPusher();
                     showShortMsg("stop record...");
                 }
                 break;
