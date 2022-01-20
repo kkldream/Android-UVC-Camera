@@ -4,8 +4,12 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
 
-public class MainActivity extends AppCompatActivity {
+import com.jiangdg.usbcamera.UVCCameraHelper;
+import com.serenegiant.usb.widget.CameraViewInterface;
 
+public class MainActivity extends AppCompatActivity {
+    UVCCameraHelper mCameraHelper;
+    CameraViewInterface mUVCCameraView;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

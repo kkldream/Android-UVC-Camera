@@ -15,3 +15,17 @@ buildscript {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+ext {
+    androidXVersion = '1.1.0'
+    versionCompiler = 28
+    // when target=27, 9.0 is ok
+    versionTarget = 27
+    // if hope supporting 4.4
+    // please modify it to 16
+    minSdkVersion = 16
+    versionCode = 101
+    versionNameString = '2.3.6.20211117'
+    javaSourceCompatibility = JavaVersion.VERSION_1_8
+    javaTargetCompatibility = JavaVersion.VERSION_1_8
+}

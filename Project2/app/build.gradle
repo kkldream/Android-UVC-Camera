@@ -28,7 +28,8 @@ android {
 }
 
 dependencies {
-
+    implementation project(':libusbcamera')
+//    implementation 'com.github.jiangdongguo:AndroidUSBCamera:2.3.7'
     implementation 'androidx.appcompat:appcompat:1.4.0'
     implementation 'com.google.android.material:material:1.4.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.2'
