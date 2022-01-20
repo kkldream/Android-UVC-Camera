@@ -43,7 +43,7 @@ public class UVCCameraHelper {
     public static final int MODE_CONTRAST = UVCCamera.PU_CONTRAST;
     private int mFrameFormat = FRAME_FORMAT_MJPEG;
 
-    private static UVCCameraHelper mCameraHelper;
+//    private static UVCCameraHelper mCameraHelper;
     // USB Manager
     private USBMonitor mUSBMonitor;
     // Camera Handler
@@ -53,15 +53,15 @@ public class UVCCameraHelper {
     private Activity mActivity;
     private CameraViewInterface mCamView;
 
-    private UVCCameraHelper() {
+    public UVCCameraHelper() {
     }
 
-    public static UVCCameraHelper getInstance() {
-        if (mCameraHelper == null) {
-            mCameraHelper = new UVCCameraHelper();
-        }
-        return mCameraHelper;
-    }
+//    public static UVCCameraHelper getInstance() {
+//        if (mCameraHelper == null) {
+//            mCameraHelper = new UVCCameraHelper();
+//        }
+//        return mCameraHelper;
+//    }
 
     public void closeCamera() {
         if (mCameraHandler != null) {
