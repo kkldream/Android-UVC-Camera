@@ -1,15 +1,10 @@
 package com.example.project2;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.content.pm.PackageManager;
 import android.hardware.usb.UsbDevice;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -41,17 +36,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final int REQUEST_CODE = 1;
     private List<String> mMissPermissions = new ArrayList<>();
     // UVC
-    UVCCameraHelper[] mCameraHelper = new UVCCameraHelper[2];
-    CameraViewInterface[] mUVCCameraView = new CameraViewInterface[2];
-    boolean[] isPreview = new boolean[2];
-    boolean[] isRequest = new boolean[2];
-
+    private static final int CAMERA_NUM = 2;
+    UVCCameraHelper[] mCameraHelper = new UVCCameraHelper[CAMERA_NUM];
+    CameraViewInterface[] mUVCCameraView = new CameraViewInterface[CAMERA_NUM];
+    boolean[] isPreview = new boolean[CAMERA_NUM];
+    boolean[] isRequest = new boolean[CAMERA_NUM];
+    BufferedOutputStream[][] bufferedOutputStreams = new BufferedOutputStream[CAMERA_NUM][2];
     int times = 0;
     long last_timestamp = 0;
-    BufferedOutputStream bufferedOutputStream_0;
-    BufferedOutputStream bufferedOutputStream_1;
-    BufferedOutputStream bufferedOutputStream_3;
-    BufferedOutputStream bufferedOutputStream_4;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,9 +51,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setContentView(R.layout.activity_main);
         Log.d(TAG, "--------------------------------------------------");
         Log.d(TAG, "[Main] onCreate");
-        checkAndRequestPermissions();
         initView();
-        for (int i = 0; i < mCameraHelper.length; i++) {
+        for (int i = 0; i < CAMERA_NUM; i++) {
             mUVCCameraView[i].setCallback(generateCameraViewInterfaceCallback(i));
             mCameraHelper[i] = new UVCCameraHelper();
             mCameraHelper[i].setDefaultPreviewSize(640, 480);
@@ -69,6 +60,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             mCameraHelper[i].initUSBMonitor(this, mUVCCameraView[i], generateOnMyDevConnectListener(i));
         }
         showAllUsbDev();
+        for (int i = 0; i < CAMERA_NUM; i++) {
+            int finalI = i;
+            mCameraHelper[i].setOnPreviewFrameListener(new AbstractUVCCameraHandler.OnPreViewResultListener() {
+                @Override
+                public void onPreviewResult(byte[] nv21Yuv) {
+                    Log.d(TAG, "[Main " + finalI + "] onPreviewResult: " + nv21Yuv.length);
+                }
+            });
+        }
     }
 
     void initView() {
@@ -90,7 +90,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onStart() {
         super.onStart();
-        for (int i = 0; i < mCameraHelper.length; i++) {
+        for (int i = 0; i < CAMERA_NUM; i++) {
             if (mCameraHelper[i] != null) {
                 Log.d(TAG, "[Life] registerUSB" + i);
                 mCameraHelper[i].registerUSB();
@@ -101,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onStop() {
         super.onStop();
-        for (int i = 0; i < mCameraHelper.length; i++) {
+        for (int i = 0; i < CAMERA_NUM; i++) {
             if (mCameraHelper[i] != null) {
                 Log.d(TAG, "[Life] unregisterUSB" + i);
                 mCameraHelper[i].unregisterUSB();
@@ -180,150 +180,114 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @SuppressLint("NonConstantResourceId")
     @Override
     public void onClick(View view) {
-//        if (mCameraHelper_1 == null || !mCameraHelper_1.isCameraOpened()) {
-//            showShortMsg("sorry,camera open failed");
-//        }
-//        switch (view.getId()) {
-//            case R.id.button_take_picture: // take picture
-//                String fileName = FileName.generate(FileName.PICTURE);
-//                mCameraHelper_1.capturePicture(fileName, new AbstractUVCCameraHandler.OnCaptureListener() {
-//                    @Override
-//                    public void onCaptureResult(String path) {
-//                        Log.d(TAG,"[Picture] onRecordResult: " + path);
-//                        if(TextUtils.isEmpty(path)) {
-//                            return;
-//                        }
-//                        runOnUiThread(() -> {
-//                            Toast.makeText(MainActivity.this, "save path:"+path, Toast.LENGTH_SHORT).show();
-//                        });
-//                    }
-//                });
-//                break;
-//            case R.id.button_record:
-//                if (!mCameraHelper_1.isPushing()) { // start record
-//                    RecordParams params = new RecordParams();
-////                    String recPath = FileName.generate(FileName.RECORD);
-////                    params.setRecordPath(recPath);
-////                    params.setRecordDuration(0); // auto divide saved,default 0 means not divided
-////                    params.setVoiceClose(false);
-////                    params.setSupportOverlay(true); // overlay only support armeabi-v7a & arm64-v8a
-////                    mCameraHelper.startPusher(params, new AbstractUVCCameraHandler.OnEncodeResultListener() {
-//                    mCameraHelper_1.startPusher(new AbstractUVCCameraHandler.OnEncodeResultListener() {
-//                        @Override
-//                        public void onEncodeResult(byte[] data, int offset, int length, long timestamp, int type) {
-//                            if (times == 0 || timestamp - last_timestamp >= VIDEO_SAVE_TIME * 2) { // 0s C0
-//                                last_timestamp = timestamp;
-//                                times++;
-//                                String fileName = FileName.generate(FileName.H264);
-//                                Log.d(TAG, "[Record] Create[0]: " + fileName);
-//                                try {
-//                                    FileOutputStream fileOutputStream = new FileOutputStream(fileName);
-//                                    bufferedOutputStream_0 = new BufferedOutputStream(fileOutputStream);
-//                                } catch (FileNotFoundException e) {
-//                                    Log.e(TAG, "[Record] Create[0]: " + e);
-//                                    e.printStackTrace();
-//                                }
-//                            }
-//                            if (timestamp - last_timestamp >= 1000 && bufferedOutputStream_1 != null && times % 2 == 1) { // 1s F1
-//                                try {
-//                                    Log.d(TAG, "[Record] Finish[1]");
-//                                    bufferedOutputStream_1.flush();
-//                                    bufferedOutputStream_1 =  null;
-//                                } catch (IOException e) {
-//                                    e.printStackTrace();
-//                                }
-//                            }
-//                            if (timestamp - last_timestamp >= VIDEO_SAVE_TIME && times % 2 == 1) { // 5s C1
-//                                times++;
-//                                String fileName = FileName.generate(FileName.H264);
-//                                Log.d(TAG, "[Record] Create[1]: " + fileName);
-//                                try {
-//                                    FileOutputStream fileOutputStream = new FileOutputStream(fileName);
-//                                    bufferedOutputStream_1 = new BufferedOutputStream(fileOutputStream);
-//                                } catch (FileNotFoundException e) {
-//                                    Log.e(TAG, "[Record] Create[1]: " + e);
-//                                    e.printStackTrace();
-//                                }
-//                            }
-//                            if (timestamp - last_timestamp >= VIDEO_SAVE_TIME + 1000 && bufferedOutputStream_0 != null) { // 6s F0
-//                                try {
-//                                    Log.d(TAG, "[Record] Finish[0]");
-//                                    bufferedOutputStream_0.flush();
-//                                    bufferedOutputStream_0 =  null;
-//                                } catch (IOException e) {
-//                                    e.printStackTrace();
-//                                }
-//                            }
-////                            Log.d(TAG, "[Record] type = " + type + ", length = " + length + " ,timestamp = " + timestamp);
-//                            if (type == 1) { // type = 1, h264 video stream
-//                                try {
-//                                    if (bufferedOutputStream_0 != null)
-//                                        bufferedOutputStream_0.write(data, offset, length);
-//                                    if (bufferedOutputStream_1 != null)
-//                                        bufferedOutputStream_1.write(data, offset, length);
-//                                } catch (IOException e) {
-//                                    e.printStackTrace();
-//                                }
-//                            } else if (type == 0) { // type = 0, aac audio stream
-//
-//                            }
-//                        }
-//
-//                        @Override
-//                        public void onRecordResult(String videoPath) {
-//                            Log.d(TAG,"[Record] onRecordResult: " + videoPath);
-//                        }
-//                    });
-//                    showShortMsg("start record...");
-//                } else { // stop record
-//                    try {
-//                        if (bufferedOutputStream_0 != null)
-//                            bufferedOutputStream_0.flush();
-//                        if (bufferedOutputStream_1 != null)
-//                            bufferedOutputStream_1.flush();
-//                    } catch (IOException e) {
-//                        e.printStackTrace();
-//                    }
-//                    mCameraHelper_1.stopPusher();
-//                    showShortMsg("stop record...");
-//                }
-//                break;
-//        }
-    }
-
-    private void checkAndRequestPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            mMissPermissions.clear();
-            for (String permission : REQUIRED_PERMISSION_LIST) {
-                int result = ContextCompat.checkSelfPermission(this, permission);
-                if (result != PackageManager.PERMISSION_GRANTED) {
-                    mMissPermissions.add(permission);
+        switch (view.getId()) {
+            case R.id.button_take_picture: // take picture
+                for (int i = 0; i < CAMERA_NUM; i++) {
+                    String fileName = FileName.generate(FileName.PICTURE, i);
+                    take_picture(i, fileName);
                 }
-            }
-            if (!mMissPermissions.isEmpty()) {
-                ActivityCompat.requestPermissions(this,
-                        mMissPermissions.toArray(new String[mMissPermissions.size()]),
-                        REQUEST_CODE);
-                Log.d(TAG, "[Main] checkAndRequestPermissions: fail");
-            } else {
-                Log.d(TAG, "[Main] checkAndRequestPermissions: success");
-            }
+                break;
+            case R.id.button_record:
+                for (int i = 0; i < CAMERA_NUM; i++) {
+                    record(i);
+                }
+                break;
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(final int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_CODE) {
-            for (int i = grantResults.length - 1; i >= 0; i--) {
-                if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
-                    mMissPermissions.remove(permissions[i]);
-                }
-            }
+    private void take_picture(int num, String fileName) {
+        Log.d(TAG,"[Picture " + num + "] take_picture: " + fileName);
+        if (mCameraHelper[num] == null || !mCameraHelper[num].isCameraOpened()) {
+            Log.d(TAG, "[Picture " + num + "] camera open failed");
+            return;
         }
-        if (!mMissPermissions.isEmpty()) {
-            Toast.makeText(this, "get permissions failed,exiting...",Toast.LENGTH_SHORT).show();
-            this.finish();
+        mCameraHelper[num].capturePicture(fileName, path -> {
+            Log.d(TAG,"[Picture " + num + "] onRecordResult: " + path);
+        });
+    }
+
+    private void record(int num) {
+        if (mCameraHelper[num] == null || !mCameraHelper[num].isCameraOpened()) {
+            Log.d(TAG, "[Record " + num + "] camera open failed");
+            return;
+        }
+        if (!mCameraHelper[num].isPushing()) { // start record
+            Log.d(TAG,"[Record " + num + "] start record");
+            mCameraHelper[num].startPusher(new AbstractUVCCameraHandler.OnEncodeResultListener() {
+                @Override
+                public void onEncodeResult(byte[] data, int offset, int length, long timestamp, int type) {
+                    if (times == 0 || timestamp - last_timestamp >= VIDEO_SAVE_TIME * 2) { // 0s C0
+                        last_timestamp = timestamp;
+                        times++;
+                        String fileName = FileName.generate(FileName.H264, num);
+                        Log.d(TAG, "[Record " + num + "] Create[0]: " + fileName);
+                        try {
+                            FileOutputStream fileOutputStream = new FileOutputStream(fileName);
+                            bufferedOutputStreams[num][0] = new BufferedOutputStream(fileOutputStream);
+                        } catch (FileNotFoundException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    if (timestamp - last_timestamp >= 1000 && bufferedOutputStreams[num][1] != null && times % 2 == 1) { // 1s F1
+                        try {
+                            Log.d(TAG, "[Record " + num + "] Finish[1]");
+                            bufferedOutputStreams[num][1].flush();
+                            bufferedOutputStreams[num][1] = null;
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    if (timestamp - last_timestamp >= VIDEO_SAVE_TIME && times % 2 == 1) { // 5s C1
+                        times++;
+                        String fileName = FileName.generate(FileName.H264, num);
+                        Log.d(TAG, "[Record " + num + "] Create[1]: " + fileName);
+                        try {
+                            FileOutputStream fileOutputStream = new FileOutputStream(fileName);
+                            bufferedOutputStreams[num][1] = new BufferedOutputStream(fileOutputStream);
+                        } catch (FileNotFoundException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    if (timestamp - last_timestamp >= VIDEO_SAVE_TIME + 1000 && bufferedOutputStreams[num][0] != null) { // 6s F0
+                        try {
+                            Log.d(TAG, "[Record " + num + "] Finish[0]");
+                            bufferedOutputStreams[num][0].flush();
+                            bufferedOutputStreams[num][0] =  null;
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    Log.d(TAG, "[Record " + num + "] type = " + type + ", length = " + length + " ,timestamp = " + timestamp);
+                    if (type == 1) { // type = 1, h264 video stream
+                        try {
+                            if (bufferedOutputStreams[num][0] != null)
+                                bufferedOutputStreams[num][0].write(data, offset, length);
+                            if (bufferedOutputStreams[num][1] != null)
+                                bufferedOutputStreams[num][1].write(data, offset, length);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    } else if (type == 0) { // type = 0, aac audio stream
+
+                    }
+                }
+
+                @Override
+                public void onRecordResult(String videoPath) {
+                    Log.d(TAG,"[Record " + num + "] onRecordResult: " + videoPath);
+                }
+            });
+        } else { // stop record
+            Log.d(TAG,"[Record " + num + "] stop record");
+            try {
+                if (bufferedOutputStreams[0][1] != null)
+                    bufferedOutputStreams[0][1].flush();
+                if (bufferedOutputStreams[0][1] != null)
+                    bufferedOutputStreams[0][1].flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            mCameraHelper[num].stopPusher();
         }
     }
 }

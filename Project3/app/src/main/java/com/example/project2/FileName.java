@@ -34,4 +34,25 @@ public class FileName {
         String path = filePath + fileName;
         return path;
     }
+
+    static String generate(int mode, int num) {
+        String filePath = UVCCameraHelper.ROOT_PATH + DIRECTORY_NAME + "/";
+        String fileName = "/cam" + num + "_";
+        switch (mode) {
+            case PICTURE:
+                filePath += PICTURE_NAME;
+                fileName += System.currentTimeMillis() + UVCCameraHelper.SUFFIX_JPEG;
+                break;
+            case RECORD:
+                filePath += RECORD_NAME;
+                fileName += System.currentTimeMillis() + UVCCameraHelper.SUFFIX_MP4;
+                break;
+            case H264:
+                filePath += RECORD_NAME;
+                fileName += System.currentTimeMillis() + ".h264";
+                break;
+        }
+        String path = filePath + fileName;
+        return path;
+    }
 }
