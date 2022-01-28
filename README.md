@@ -10,7 +10,7 @@
 
 ### Project3
 
-使用[Liuguihong/AndroidUVCCamera](https://github.com/Liuguihong/AndroidUVCCamera)此Github上的UVC庫，使用Project2進行修改，實現多組USB Camera同時運作。
+使用[jiangdongguo/AndroidUSBCamera](https://github.com/jiangdongguo/AndroidUSBCamera)此Github上的UVC庫，使用Project2進行修改，並將函式庫裡的`UVCCameraHelper`類別取消靜態宣告，實現多組USB Camera同時預覽，但目前無法同時錄影、拍照。
 
 ### 參考
 
