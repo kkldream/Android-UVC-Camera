@@ -31,7 +31,6 @@ public class FileName {
                 fileName += System.currentTimeMillis() + ".h264";
                 break;
         }
-        String path = filePath + fileName;
-        return path;
+        return filePath + fileName;
     }
 }

@@ -1,0 +1,11 @@
+Android-UVC-Camera
+
+This repository includes sample Android code maintained by kkldream.
+
+Portions of the UVC camera library code are derived from or reference:
+- saki4510t/UVCCamera, Apache License 2.0
+- jiangdongguo/AndroidUSBCamera
+- Liuguihong/AndroidUVCCamera, including the Project1 uvccamerasdk module
+
+Source files that carry their own copyright or license headers remain
+governed by those notices.

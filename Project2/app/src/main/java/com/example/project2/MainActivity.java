@@ -226,6 +226,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View view) {
         if (mCameraHelper == null || !mCameraHelper.isCameraOpened()) {
             showShortMsg("sorry,camera open failed");
+            return;
         }
         switch (view.getId()) {
             case R.id.button_take_picture: // take picture

@@ -6,7 +6,6 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.hardware.usb.UsbDevice;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.Surface;
 import android.view.View;
@@ -15,7 +14,6 @@ import android.widget.Toast;
 
 import com.jiangdg.usbcamera.UVCCameraHelper;
 import com.serenegiant.usb.common.AbstractUVCCameraHandler;
-import com.serenegiant.usb.encoder.RecordParams;
 import com.serenegiant.usb.widget.CameraViewInterface;
 
 import java.io.BufferedOutputStream;
@@ -42,8 +40,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     boolean[] isPreview = new boolean[CAMERA_NUM];
     boolean[] isRequest = new boolean[CAMERA_NUM];
     BufferedOutputStream[][] bufferedOutputStreams = new BufferedOutputStream[CAMERA_NUM][2];
-    int times = 0;
-    long last_timestamp = 0;
+    RecordingSegmentState[] recordingSegmentStates = new RecordingSegmentState[CAMERA_NUM];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,6 +52,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         for (int i = 0; i < CAMERA_NUM; i++) {
             mUVCCameraView[i].setCallback(generateCameraViewInterfaceCallback(i));
             mCameraHelper[i] = new UVCCameraHelper();
+            recordingSegmentStates[i] = new RecordingSegmentState();
             mCameraHelper[i].setDefaultPreviewSize(640, 480);
             mCameraHelper[i].setDefaultFrameFormat(UVCCameraHelper.FRAME_FORMAT_MJPEG);
             mCameraHelper[i].initUSBMonitor(this, mUVCCameraView[i], generateOnMyDevConnectListener(i));
@@ -216,9 +214,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             mCameraHelper[num].startPusher(new AbstractUVCCameraHandler.OnEncodeResultListener() {
                 @Override
                 public void onEncodeResult(byte[] data, int offset, int length, long timestamp, int type) {
-                    if (times == 0 || timestamp - last_timestamp >= VIDEO_SAVE_TIME * 2) { // 0s C0
-                        last_timestamp = timestamp;
-                        times++;
+                    RecordingSegmentState segmentState = recordingSegmentStates[num];
+                    if (segmentState.shouldOpenPrimarySegment(timestamp, VIDEO_SAVE_TIME)) { // 0s C0
+                        segmentState.markPrimarySegmentOpened(timestamp);
                         String fileName = FileName.generate(FileName.H264, num);
                         Log.d(TAG, "[Record " + num + "] Create[0]: " + fileName);
                         try {
@@ -228,17 +226,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             e.printStackTrace();
                         }
                     }
-                    if (timestamp - last_timestamp >= 1000 && bufferedOutputStreams[num][1] != null && times % 2 == 1) { // 1s F1
-                        try {
-                            Log.d(TAG, "[Record " + num + "] Finish[1]");
-                            bufferedOutputStreams[num][1].flush();
-                            bufferedOutputStreams[num][1] = null;
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+                    if (segmentState.shouldCloseSecondarySegment(timestamp) && bufferedOutputStreams[num][1] != null) { // 1s F1
+                        Log.d(TAG, "[Record " + num + "] Finish[1]");
+                        closeOutputStream(num, 1);
                     }
-                    if (timestamp - last_timestamp >= VIDEO_SAVE_TIME && times % 2 == 1) { // 5s C1
-                        times++;
+                    if (segmentState.shouldOpenSecondarySegment(timestamp, VIDEO_SAVE_TIME)) { // 5s C1
+                        segmentState.markSecondarySegmentOpened();
                         String fileName = FileName.generate(FileName.H264, num);
                         Log.d(TAG, "[Record " + num + "] Create[1]: " + fileName);
                         try {
@@ -248,14 +241,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             e.printStackTrace();
                         }
                     }
-                    if (timestamp - last_timestamp >= VIDEO_SAVE_TIME + 1000 && bufferedOutputStreams[num][0] != null) { // 6s F0
-                        try {
-                            Log.d(TAG, "[Record " + num + "] Finish[0]");
-                            bufferedOutputStreams[num][0].flush();
-                            bufferedOutputStreams[num][0] =  null;
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+                    if (segmentState.shouldClosePrimarySegment(timestamp, VIDEO_SAVE_TIME) && bufferedOutputStreams[num][0] != null) { // 6s F0
+                        Log.d(TAG, "[Record " + num + "] Finish[0]");
+                        closeOutputStream(num, 0);
                     }
                     Log.d(TAG, "[Record " + num + "] type = " + type + ", length = " + length + " ,timestamp = " + timestamp);
                     if (type == 1) { // type = 1, h264 video stream
@@ -279,15 +267,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             });
         } else { // stop record
             Log.d(TAG,"[Record " + num + "] stop record");
-            try {
-                if (bufferedOutputStreams[0][1] != null)
-                    bufferedOutputStreams[0][1].flush();
-                if (bufferedOutputStreams[0][1] != null)
-                    bufferedOutputStreams[0][1].flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            closeOutputStream(num, 0);
+            closeOutputStream(num, 1);
+            recordingSegmentStates[num].reset();
             mCameraHelper[num].stopPusher();
+        }
+    }
+
+    private void closeOutputStream(int cameraIndex, int streamIndex) {
+        if (bufferedOutputStreams[cameraIndex][streamIndex] == null) {
+            return;
+        }
+        try {
+            bufferedOutputStreams[cameraIndex][streamIndex].flush();
+            bufferedOutputStreams[cameraIndex][streamIndex].close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            bufferedOutputStreams[cameraIndex][streamIndex] = null;
         }
     }
 }

@@ -1,2 +1,13 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Text files use LF for reproducible Android/Gradle builds.
+* text=auto eol=lf
+
+*.bat text eol=crlf
+
+# Binary assets and build inputs.
+*.aar binary
+*.jar binary
+*.so binary
+*.ttf binary
+*.ogg binary
+*.png binary
+*.webp binary

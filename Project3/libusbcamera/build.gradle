@@ -3,6 +3,7 @@ apply plugin: 'com.android.library'
 group='com.github.jiangdongguo'
 
 android {
+    namespace 'com.jiangdg.libusbcamera'
     compileSdkVersion rootProject.ext.versionCompiler
     defaultConfig {
         minSdkVersion rootProject.ext.minSdkVersion
@@ -41,4 +42,5 @@ dependencies {
     implementation "androidx.appcompat:appcompat:${androidXVersion}"
 
     implementation(name: 'libusbcommon_v4.1.1', ext: 'aar')
+    testImplementation 'junit:junit:4.13.2'
 }
